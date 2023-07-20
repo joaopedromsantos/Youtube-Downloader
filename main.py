@@ -2,7 +2,7 @@ import requests as requests
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QPushButton, \
-    QSizePolicy, QHBoxLayout, QTextEdit
+    QSizePolicy, QHBoxLayout, QTextEdit, QComboBox
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QImage
 from pytube import YouTube
 
@@ -184,9 +184,23 @@ class UiMainWindow(object):
         self.Label_Type_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.File_type_layout.addWidget(self.Label_Type_widget)
 
-        # Type Option
-        self.Option_Type_widget = QWidget()
-        self.Option_Type_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Type Option (QComboBox)
+        self.Option_Type_widget = QComboBox()
+        self.Option_Type_widget.setStyleSheet('''
+                    QComboBox {
+                        border-radius: 5px;
+                        background: #FFFFFF;
+                        padding-left: 10px;
+                        color: #747474;
+                        font-size: 16px;
+                        font-family: Fira Sans;
+                        font-style: normal;
+                        font-weight: 400;
+                        line-height: normal;
+                    }
+                ''')
+        self.Option_Type_widget.setMaximumHeight(34)
+
         self.File_type_layout.addWidget(self.Option_Type_widget)
 
         self.Center_Widget_layout.addWidget(self.File_type_widget)
@@ -230,6 +244,22 @@ class UiMainWindow(object):
 
         self.Center_Widget_layout.addWidget(self.Button_download)
 
+    def get_video_resolutions(self, streams):
+        resolutions = set()
+        for stream in streams:
+            if stream.resolution:  # Verifique se a stream tem resolução definida
+                # Obtém a resolução ignorando o 'p'
+                res = int(stream.resolution[:-1])
+                resolutions.add(res)
+        return resolutions
+
+    def get_audio_kbps(self, streams):
+        kbps = set()
+        for stream in streams:
+            if stream.abr:  # Verifique se a stream tem bitrate de áudio definido
+                kbps.add(stream.abr)
+        return kbps
+
     def search_video(self):
         # Obtenha a URL inserida no QTextEdit
         url = self.Url_link_widget.toPlainText().strip()
@@ -242,6 +272,27 @@ class UiMainWindow(object):
             video_thumbnail_url = yt.thumbnail_url
             video_title = yt.title
             video_duration = yt.length
+            video_streams = yt.streams.filter(file_extension='mp4')
+
+            # Filtrar e obter apenas as streams de áudio no formato MP4
+            audio_streams = yt.streams.filter(only_audio=True, file_extension='mp4')
+
+            # Obtendo as resoluções dos vídeos
+            video_resolutions = self.get_video_resolutions(video_streams)
+
+            # Ordenar as resoluções dos vídeos da maior para a menor
+            sorted_resolutions = sorted(video_resolutions, reverse=True)
+
+            # Limpar o QComboBox antes de adicionar novos itens
+            self.Option_Type_widget.clear()
+
+            # Adicionar as streams de vídeo disponíveis ao QComboBox
+            for i, resolution in enumerate(sorted_resolutions):
+                self.Option_Type_widget.addItem(f"{i + 1}. Video/MP4   {resolution}p")
+
+            # Adicionar as streams de áudio disponíveis ao QComboBox
+            for i, stream in enumerate(audio_streams):
+                self.Option_Type_widget.addItem(f"{i + 1}. Audio/MP4   {stream.abr}")
 
             # Carregando a miniatura usando QPixmap
             thumbnail_data = QImage()
@@ -262,6 +313,7 @@ class UiMainWindow(object):
         except Exception as e:
             # Caso ocorra algum erro ao buscar as informações do vídeo
             print("Erro ao buscar informações do vídeo:", str(e))
+
 
 if __name__ == "__main__":
     import sys
